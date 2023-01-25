@@ -151,10 +151,10 @@ scene.addSpheres(
 	new Sphere(Vec3(0, -10, 4), 9.6, Srf(0.0, Vec3(0.7, 0.6, 0.8), Mat(0.9, 0.0, 0.0, 0.0))),
 	new Sphere(Vec3(0.5, 1.8, 4.5), 0.7, Srf(2.0, Vec3(0.1, 0.7, 0.7), Mat(1.0, 0.0, 0.0, 0.0))),
 	new Sphere(Vec3(-2, -0.3, 7), 3.0, Srf(0.0, Vec3(0.5, 0.7, 0.2), Mat(0.9, 0.1, 0.0, 0.0))),
-	new Sphere(Vec3(-2, 0, 3), 0.7, Srf(0.0, Vec3(1.0, 0.1, 0.1), Mat(0.7, 0.0, 0.0, 0.0))),
+	new Sphere(Vec3(-2, 0, 3), 0.7, Srf(0.0, Vec3(1.0, 0.025, 0.02), Mat(0.9, 0.0, 0.0, 0.0))),
 	new Sphere(Vec3(0, 0, 4), 0.5, Srf(0.0, Vec3(0, 0.5, 0.5), Mat(0.9, 0.0, 0.0, 1.5))),
 	new Sphere(Vec3(2, 0, 5), 1.6, Srf(0.0, Vec3(0.2, 0.7, 0.3), Mat(0.1, 0.0, 1.0, 1.4))),
-	new Sphere(Vec3(-6, 2, 3), 0.3, Srf(200.0, Vec3(1, 1, 1), Mat(1.0, 0.0, 0.0, 0.0)))
+	new Sphere(Vec3(-6, 3, 1.8), 1.2, Srf(20.0, Vec3(1, 1, 1), Mat(1.0, 0.0, 0.0, 0.0)))
 );
 scene.addTriangles(
 	Cube.fromPoints(
