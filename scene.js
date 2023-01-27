@@ -79,90 +79,96 @@ class GLStruct {
 
 
 class Material extends GLStruct {	// This doesn't have to be the only material type
-	static F32_LEN = 4;
-	constructor(r, g, t, rfi) {
+	static F32_LEN = 16;
+	constructor(spn, spk, d, t, e, rgh) {
 		super();
-		this.roughness = r ?? 1;
-		this.glossiness = g ?? 0;
-		this.transparency = t ?? 0;
-		this.refraction_index = rfi ?? 1;
+		this.specular_n = spn ?? vec3.create();
+		this.specular_k = spk ?? vec3.create();
+		this.diffusive = d ?? vec3.create();
+		this.transmissive = t ?? vec3.create();
+		this.emmissive = e ?? vec3.create();
+		this.s_roughness = rgh ?? 0;
 	}
 
 	copy() {
 		return new Material(
-			this.roughness,
-			this.glossiness,
-			this.transparency,
-			this.refraction_index
+			this.specular_n,
+			this.specular_k,
+			this.diffusive,
+			this.transmissive,
+			this.emmissive,
+			this.s_roughness
 		);
 	}
 
 	update(gl) {	// overload the default
-		gl.uniform1f(this.bindings.roughness, this.roughness);
-		gl.uniform1f(this.bindings.glossiness, this.glossiness);
-		gl.uniform1f(this.bindings.transparency, this.transparency);
-		gl.uniform1f(this.bindings.refraction_index, this.refraction_index);
+		gl.uniform1f(this.bindings.specular_n, this.specular_n);
+		gl.uniform1f(this.bindings.specular_k, this.specular_k);
+		gl.uniform1f(this.bindings.diffusive, this.diffusive);
+		gl.uniform1f(this.bindings.transmissive, this.transmissive);
+		gl.uniform1f(this.bindings.emmissive, this.emmissive);
+		gl.uniform1f(this.bindings.s_roughness, this.s_roughness);
 		return true;
 	}
 
 }
-function Mat(r, g, t, rfi) { return new Material(r, g, t, rfi); }
+function Mat(spn, spk, d, t, e, rgh) { return new Material(spn, spk, d, t, e, rgh); }
 
 /**
  * All interactables should "have" (not be) a surface. (this makes it easy to send to glsl)
  * This contains / defines ray redirection behavior as well as albedo and luminance
  */
-class Surface extends GLStruct {
-	static F32_LEN = 5;
-	constructor(lum, clr, mat) {
-		super();
-		this.luminance = lum ?? 0;
-		this.albedo = clr ?? vec3.create();	// might need to expand this into a texture system if we want image textures
-		this.mat = mat ?? new Material();	// and expand this if we need more exotic material defs
-	}
+// class Surface extends GLStruct {
+// 	static F32_LEN = 5;
+// 	constructor(lum, clr, mat) {
+// 		super();
+// 		this.luminance = lum ?? 0;
+// 		this.albedo = clr ?? vec3.create();	// might need to expand this into a texture system if we want image textures
+// 		this.mat = mat ?? new Material();	// and expand this if we need more exotic material defs
+// 	}
 
-	copy() {
-		return new Surface(
-			this.luminance,
-			this.albedo,
-			this.mat.copy()
-		);
-	}
+// 	copy() {
+// 		return new Surface(
+// 			this.luminance,
+// 			this.albedo,
+// 			this.mat.copy()
+// 		);
+// 	}
 
-	update(gl) {
-		gl.uniform1f(this.bindings.luminance, this.luminance);
-		gl.uniform3fv(this.bindings.albedo, this.albedo);
-		return this.mat.update(gl);
-	}
+// 	update(gl) {
+// 		gl.uniform1f(this.bindings.luminance, this.luminance);
+// 		gl.uniform3fv(this.bindings.albedo, this.albedo);
+// 		return this.mat.update(gl);
+// 	}
 
-}
-function Srf(lum, clr, mat) { return new Surface(lum, clr, mat); }
+// }
+// function Srf(lum, clr, mat) { return new Surface(lum, clr, mat); }
 
 class Sphere extends GLStruct {
 	static F32_LEN = 5;
-	constructor(pos, rad, surface) {
+	constructor(pos, rad, mat) {
 		super();
 		this.center = pos ?? vec3.create();
 		this.radius = rad ?? 1;
-		this.surface = surface ?? new Surface();
+		this.mat = mat ?? new Material();
 	}
 
 	update(gl) {	// overload the default
 		console.log(this);
 		gl.uniform3fv(this.bindings.center, this.center);
 		gl.uniform1f(this.bindings.radius, this.radius);
-		return this.surface.update(gl);
+		return this.mat.update(gl);
 	}
 
 }
 class Triangle extends GLStruct {
 	static F32_LEN = 10;
-	constructor(a, b, c, surface) {
+	constructor(a, b, c, mat) {
 		super();
 		this.a = a ?? vec3.create();
 		this.b = b ?? vec3.create();
 		this.c = c ?? vec3.create();
-		this.surface = surface ?? new Surface();
+		this.mat = mat ?? new Material();
 		// buffers for rotating, resizing, moving, etc (ex. center pos)
 	}
 
@@ -171,7 +177,7 @@ class Triangle extends GLStruct {
 		gl.uniform3fv(this.bindings.a, this.a);
 		gl.uniform3fv(this.bindings.b, this.b);
 		gl.uniform3fv(this.bindings.c, this.c);
-		return this.surface.update(gl);
+		return this.mat.update(gl);
 	}
 
 }
@@ -183,22 +189,22 @@ class Cube {
 	static fromSize(w, h, d, o, srf) {
 
 	}
-	static fromPoints(a, b, c, d, e, f, g, h, srf) {
+	static fromPoints(a, b, c, d, e, f, g, h, mat) {
 		const q = new Cube();
-		const s = srf ?? new Surface();
+		const m = mat ?? new Material();
 		q.primitives = [
-			new Triangle(a, b, c, s.copy()),	//       a
-			new Triangle(a, c, d, s.copy()),	//   b  |     d
-			new Triangle(a, b, h, s.copy()),	//  |  h  c  |
-			new Triangle(b, g, h, s.copy()),	// g     |  e
-			new Triangle(b, c, g, s.copy()),	//      f
-			new Triangle(c, f, g, s.copy()),
-			new Triangle(c, d, f, s.copy()),
-			new Triangle(d, f, e, s.copy()),
-			new Triangle(a, d, e, s.copy()),
-			new Triangle(a, h, e, s.copy()),
-			new Triangle(e, f, g, s.copy()),
-			new Triangle(g, h, e, s)
+			new Triangle(a, b, c, m.copy()),	//       a
+			new Triangle(a, c, d, m.copy()),	//   b  |     d
+			new Triangle(a, b, h, m.copy()),	//  |  h  c  |
+			new Triangle(b, g, h, m.copy()),	// g     |  e
+			new Triangle(b, c, g, m.copy()),	//      f
+			new Triangle(c, f, g, m.copy()),
+			new Triangle(c, d, f, m.copy()),
+			new Triangle(d, f, e, m.copy()),
+			new Triangle(a, d, e, m.copy()),
+			new Triangle(a, h, e, m.copy()),
+			new Triangle(e, f, g, m.copy()),
+			new Triangle(g, h, e, m)
 		];
 		return q;
 	}
@@ -356,14 +362,11 @@ class Float32ArrayTexture {
 class Scene {
 	static SPHERE_SAMPLER_UNIFORM = "sphere_data";
 	static TRIANGLE_SAMPLER_UNIFORM = "triangle_data";
-	static SURFACE_SAMPLER_UNIFORM = "surface_data";
 	static MATERIAL_SAMPLER_UNIFORM = "material_data";
 	constructor(gl, start_unit, prog) {
 		this.spheres = new Float32ArrayTexture();
 		this.triangles = new Float32ArrayTexture();
-		this.surfaces = new Float32ArrayTexture();
-		this.materials = new Float32ArrayTexture();
-		this.skycolor = vec3.create();
+		this.materials = new Float32ArrayTexture(16);
 		if(gl) {
 			this.attachTextures(gl, start_unit, prog);
 		}
@@ -374,36 +377,39 @@ class Scene {
 			gl, start_unit + 0, program, Scene.SPHERE_SAMPLER_UNIFORM);
 		this.triangles.attach(
 			gl, start_unit + 1, program, Scene.TRIANGLE_SAMPLER_UNIFORM);
-		this.surfaces.attach(
-			gl, start_unit + 2, program, Scene.SURFACE_SAMPLER_UNIFORM);
 		this.materials.attach(
-			gl, start_unit + 3, program, Scene.MATERIAL_SAMPLER_UNIFORM);
+			gl, start_unit + 2, program, Scene.MATERIAL_SAMPLER_UNIFORM);
 		return this;
 	}
 	update(gl) {
 		this.spheres.update(gl, Sphere.F32_LEN);
 		this.triangles.update(gl, Triangle.F32_LEN);
-		this.surfaces.update(gl, Surface.F32_LEN);
 		this.materials.update(gl, Material.F32_LEN);
 		return this;
 	}
 
-	setSky(r, g, b) {
-		vec3.set(this.skycolor, r, g, b);
+	setSky(mat) {
+		this.materials.data[0] = mat;
+		this.materials.data.set(mat.specular_n,		0);
+		this.materials.data.set(mat.specular_k,		3);
+		this.materials.data.set(mat.diffusive,		6);
+		this.materials.data.set(mat.transmissive,	9);
+		this.materials.data.set(mat.emmissive,		12);
+		this.materials.data[15] = mat.s_roughness;
 	}
 
 	addSpheres(...spheres) {
 		const arr = Array.from(spheres).flat().filter(s => s instanceof Sphere);
 		const floats = new Float32Array(arr.length * Sphere.F32_LEN);
-		const surfaces = new Array(arr.length);
+		const materials = new Array(arr.length);
 		let f = 0;
 		for(let i = 0; i < arr.length; i++) {
 			floats.set(arr[i].center, f);
 			floats[f + 3] = arr[i].radius;
-			surfaces[i] = arr[i].surface;
+			materials[i] = arr[i].mat;
 			f += Sphere.F32_LEN;
 		}
-		let ids = this.addSurfaces(surfaces);
+		let ids = this.addMaterials(materials);
 		f = 4;
 		for(let i = 0; i < arr.length; i++) {
 			floats[f] = ids[i];
@@ -414,16 +420,16 @@ class Scene {
 	addTriangles(...triangles) {
 		const arr = Array.from(triangles).flat().filter(t => t instanceof Triangle);
 		const floats = new Float32Array(arr.length * Triangle.F32_LEN);
-		const surfaces = new Array(arr.length);
+		const materials = new Array(arr.length);
 		let f = 0;
 		for(let i = 0; i < arr.length; i++) {
 			floats.set(arr[i].a, f + 0);
 			floats.set(arr[i].b, f + 3);
 			floats.set(arr[i].c, f + 6);
-			surfaces[i] = arr[i].surface;
+			materials[i] = arr[i].mat;
 			f += Triangle.F32_LEN;
 		}
-		let ids = this.addSurfaces(surfaces);
+		let ids = this.addMaterials(materials);
 		f = 9;
 		for(let i = 0; i < arr.length; i++) {
 			floats[f] = ids[i];
@@ -433,40 +439,42 @@ class Scene {
 	}
 	addCube() {}
 
-	addSurfaces(...surfaces) {
-		const arr = Array.from(surfaces).flat().filter(s => s instanceof Surface);
-		const floats = new Float32Array(arr.length * Surface.F32_LEN);
-		const mats = new Array(arr.length);
-		let f = 0;
-		for(let i = 0; i < arr.length; i++) {
-			floats[f] = arr[i].luminance;
-			floats.set(arr[i].albedo, f + 1);
-			mats[i] = arr[i].mat;
-			f += Surface.F32_LEN;
-		}
-		let ids = this.addMaterials(mats);
-		f = 4;
-		for(let i = 0; i < arr.length; i++) {
-			floats[f] = ids[i];
-			f += Surface.F32_LEN;
-		}
-		let start = (this.surfaces.data.length / Surface.F32_LEN);
-		this.surfaces.data = this.surfaces.data.concat(floats);
-		for(let i = 0; i < mats.length; i++) {	// repurpose mat array because it is already the correct size
-			mats[i] = start + i;
-		}
-		return mats;
-	}
+	// addSurfaces(...surfaces) {
+	// 	const arr = Array.from(surfaces).flat().filter(s => s instanceof Surface);
+	// 	const floats = new Float32Array(arr.length * Surface.F32_LEN);
+	// 	const mats = new Array(arr.length);
+	// 	let f = 0;
+	// 	for(let i = 0; i < arr.length; i++) {
+	// 		floats[f] = arr[i].luminance;
+	// 		floats.set(arr[i].albedo, f + 1);
+	// 		mats[i] = arr[i].mat;
+	// 		f += Surface.F32_LEN;
+	// 	}
+	// 	let ids = this.addMaterials(mats);
+	// 	f = 4;
+	// 	for(let i = 0; i < arr.length; i++) {
+	// 		floats[f] = ids[i];
+	// 		f += Surface.F32_LEN;
+	// 	}
+	// 	let start = (this.surfaces.data.length / Surface.F32_LEN);
+	// 	this.surfaces.data = this.surfaces.data.concat(floats);
+	// 	for(let i = 0; i < mats.length; i++) {	// repurpose mat array because it is already the correct size
+	// 		mats[i] = start + i;
+	// 	}
+	// 	return mats;
+	// }
 	addMaterials(...materials) {
 		const arr = Array.from(materials).flat().filter(m => m instanceof Material);
 		const floats = new Float32Array(arr.length * Material.F32_LEN);
 		const ret_ids = new Array(arr.length);
 		let f = 0;
 		for(let i = 0; i < arr.length; i++) {
-			floats[f + 0] = arr[i].roughness;
-			floats[f + 1] = arr[i].glossiness;
-			floats[f + 2] = arr[i].transparency;
-			floats[f + 3] = arr[i].refraction_index;
+			floats.set(arr[i].specular_n,	f + 0);
+			floats.set(arr[i].specular_k,	f + 3);
+			floats.set(arr[i].diffusive,	f + 6);
+			floats.set(arr[i].transmissive,	f + 9);
+			floats.set(arr[i].emmissive,	i + 12);
+			floats[f + 15] = arr[i].s_roughness;
 			f += Material.F32_LEN;
 		}
 		let start = (this.materials.data.length / Material.F32_LEN);
