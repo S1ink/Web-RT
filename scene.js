@@ -191,19 +191,19 @@ class Cube {
 	}
 	static fromPoints(a, b, c, d, e, f, g, h, mat) {
 		const q = new Cube();
-		const m = mat ?? new Material();
+		let m = mat ?? -1;
 		q.primitives = [
-			new Triangle(a, b, c, m.copy()),	//       a
-			new Triangle(a, c, d, m.copy()),	//   b  |     d
-			new Triangle(a, b, h, m.copy()),	//  |  h  c  |
-			new Triangle(b, g, h, m.copy()),	// g     |  e
-			new Triangle(b, c, g, m.copy()),	//      f
-			new Triangle(c, f, g, m.copy()),
-			new Triangle(c, d, f, m.copy()),
-			new Triangle(d, f, e, m.copy()),
-			new Triangle(a, d, e, m.copy()),
-			new Triangle(a, h, e, m.copy()),
-			new Triangle(e, f, g, m.copy()),
+			new Triangle(a, b, c, m),	//       a
+			new Triangle(a, c, d, m),	//   b  |     d
+			new Triangle(a, b, h, m),	//  |  h  c  |
+			new Triangle(b, g, h, m),	// g     |  e
+			new Triangle(b, c, g, m),	//      f
+			new Triangle(c, f, g, m),
+			new Triangle(c, d, f, m),
+			new Triangle(d, f, e, m),
+			new Triangle(a, d, e, m),
+			new Triangle(a, h, e, m),
+			new Triangle(e, f, g, m),
 			new Triangle(g, h, e, m)
 		];
 		return q;
@@ -397,6 +397,11 @@ class Scene {
 		this.materials.data.set(mat.emmissive,		12);
 		this.materials.data[15] = mat.s_roughness;
 	}
+	skyColor(r, g, b) {
+		this.materials.data[12] = r;
+		this.materials.data[13] = g;
+		this.materials.data[14] = b;
+	}
 
 	addSpheres(...spheres) {
 		const arr = Array.from(spheres).flat().filter(s => s instanceof Sphere);
@@ -464,23 +469,31 @@ class Scene {
 	// 	return mats;
 	// }
 	addMaterials(...materials) {
-		const arr = Array.from(materials).flat().filter(m => m instanceof Material);
-		const floats = new Float32Array(arr.length * Material.F32_LEN);
+		const arr = Array.from(materials).flat().filter(m => m instanceof Material || typeof m === 'number');
+		const floats = new Float32Array(arr.filter(m => m instanceof Material).length * Material.F32_LEN);
 		const ret_ids = new Array(arr.length);
 		let f = 0;
 		for(let i = 0; i < arr.length; i++) {
-			floats.set(arr[i].specular_n,	f + 0);
-			floats.set(arr[i].specular_k,	f + 3);
-			floats.set(arr[i].diffusive,	f + 6);
-			floats.set(arr[i].transmissive,	f + 9);
-			floats.set(arr[i].emmissive,	i + 12);
-			floats[f + 15] = arr[i].s_roughness;
-			f += Material.F32_LEN;
+			if(typeof arr[i] === 'number') {
+				ret_ids[i] = arr[i];
+			} else {
+				floats.set(arr[i].specular_n,	f + 0);
+				floats.set(arr[i].specular_k,	f + 3);
+				floats.set(arr[i].diffusive,	f + 6);
+				floats.set(arr[i].transmissive,	f + 9);
+				floats.set(arr[i].emmissive,	f + 12);
+				floats[f + 15] = arr[i].s_roughness;
+				f += Material.F32_LEN;
+				ret_ids[i] = -1;
+			}
 		}
-		let start = (this.materials.data.length / Material.F32_LEN);
+		let at = (this.materials.data.length / Material.F32_LEN);
 		this.materials.data = this.materials.data.concat(floats);
 		for(let i = 0; i < ret_ids.length; i++) {
-			ret_ids[i] = start + i;
+			if(ret_ids[i] < 0) {
+				ret_ids[i] = at;
+				at++;
+			}
 		}
 		return ret_ids;
 	}
