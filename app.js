@@ -218,7 +218,7 @@ scene.addSpheres(
 		Vec3(0, 0, 0),
 		0.2
 	)),
-	new Sphere(Vec3(-2, 3, 1.8), 0.5, Mat(
+	new Sphere(Vec3(-2.5, 3, 4.5), 0.5, Mat(
 		Vec3(1, 1, 1),
 		Vec3(0, 0, 0),
 		Vec3(1, 1, 1),

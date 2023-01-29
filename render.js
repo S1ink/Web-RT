@@ -128,7 +128,7 @@ const fragment_src = `#version 300 es
 #endif
 
 
-#define EPSILON 0.00001		// 1e-5
+#define EPSILON 1e-5
 #define PI 3.14159265358979
 #define PI2 6.283185307179586
 #define PHI 1.61803398874989484820459
@@ -178,16 +178,6 @@ uniform sampler2D triangle_data;
 uniform sampler2D material_data;
 // something to indicate selected objects
 
-float sample1d(in sampler2D smp, in int beg) {
-	return texelFetch(smp, ivec2(beg, 0), 0).x;
-}
-vec3 sample1d_v3(in sampler2D smp, in int beg) {
-	return vec3(
-		texelFetch(smp, ivec2(beg, 0), 0).x,
-		texelFetch(smp, ivec2(beg + 1, 0), 0).x,
-		texelFetch(smp, ivec2(beg + 2, 0), 0).x
-	);
-}
 void sphere_at(in int num, out Sphere s) {
 	s.center = vec3(
 		texelFetch(sphere_data, ivec2(0, num), 0).x,
@@ -375,15 +365,13 @@ struct Hit {
 	//vec2 uv;
 };
 
-bool _reflect(in Ray src, in Hit hit, out Ray ret) {
+void _reflect(in Ray src, in Hit hit, out Ray ret) {
 	ret.origin = hit.normal.origin;
 	ret.direction = reflect(src.direction, hit.normal.direction);
-	return dot(ret.direction, hit.normal.direction) > 0.0;
 }
-bool _refract(in Ray src, in Hit hit, out Ray ret, in float eta) {
+void _refract(in Ray src, in Hit hit, out Ray ret, in float eta) {
 	ret.origin = hit.normal.origin;
 	ret.direction = refract(src.direction, hit.normal.direction, eta);
-	return true;
 }
 
 float reflectance_approx(float cos, float r0) {	// Schlick approx
@@ -423,6 +411,10 @@ vec2 ir_eta_complex(float n1, float k1, float n2, float k2) {
 		(n2*n1 + k2*k1) / d,
 		(k2*n1 - n2*k1) / d );
 }
+float sini2cost(float sini2, float n1, float n2) {	// sini2 param is the sin of the incident angle squared
+	float e = (n1 / n2);
+	return sqrt(1.0 - e*e*sini2);
+}
 float simple_r0(float n1, float n2) {
 	float r = (n1 - n2) / (n1 + n2);
 	return r*r;
@@ -433,68 +425,6 @@ float complex_r0(float eta, float k) {
 	float b = eta + 1.0;
 	return (a*a + k2) / (b*b + k2);
 }
-
-// vec3 computeReflectance3(in Material from, in Material to, in Ray src, in Hit hit) {
-// 	float cosi = min(dot(-src.direction, hit.normal.direction), 1.0);
-// 	float sini = sqrt(1.0 - cosi*cosi);
-// 	vec3 ret;
-// 	vec2 eta_cx;
-// 	if((from.specular_n[0] == from.specular_n[1] == from.specular_n[2]) &&
-// 		(from.specular_k[0] == from.specular_k[1] == from.specular_k[2]) &&
-// 		(to.specular_n[0] == to.specular_n[1] == to.specular_n[2]) &&
-// 		(to.specular_k[0] == to.specular_k[1] == to.specular_k[2])
-// 	) {
-// 		eta_cx = ir_eta_complex(from.specular_n[0], from.specular_k[0], to.specular_n[1], to.specular_k[1]);
-// 		ret.x = ret.y = ret.z = reflectance_complex(cosi, sini, eta_cx.x, eta_cx.y);
-// 	} else {
-// 		eta_cx = ir_eta_complex(from.specular_n[0], from.specular_k[0], to.specular_n[0], to.specular_k[0]);
-// 		ret.x = reflectance_complex(cosi, sini, eta_cx.x, eta_cx.y);
-// 		eta_cx = ir_eta_complex(from.specular_n[1], from.specular_k[1], to.specular_n[1], to.specular_k[1]);
-// 		ret.y = reflectance_complex(cosi, sini, eta_cx.x, eta_cx.y);
-// 		eta_cx = ir_eta_complex(from.specular_n[2], from.specular_k[2], to.specular_n[2], to.specular_k[2]);
-// 		ret.z = reflectance_complex(cosi, sini, eta_cx.x, eta_cx.y);
-// 	}
-// 	return ret;
-// }
-
-bool reflectGlossy(in Ray src, in Hit hit, out Ray ret, float gloss) {
-	ret.origin = hit.normal.origin;
-	ret.direction = reflect(src.direction, hit.normal.direction) + (randomUnitVec3_Reject(rseed()) * gloss);
-	return dot(ret.direction, hit.normal.direction) > 0.0;
-}
-bool refractGlossy(in Ray src, in Hit hit, out Ray ret, in float ir, in float gloss) {
-	if(!hit.internal) { ir = 1.0 / ir; }
-	float cos_theta = min(dot(-src.direction, hit.normal.direction), 1.0);
-	float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
-	float r = rand();
-	if ((ir * sin_theta) > 1.0 || (reflectance_approx(cos_theta, ir) > r)) {
-		return reflectGlossy(src, hit, ret, gloss);
-	}
-	vec3 r_out_perp = ir * (src.direction + cos_theta * hit.normal.direction);
-	vec3 r_out_para = -sqrt(abs(1.0 - dot(r_out_perp, r_out_perp))) * hit.normal.direction;
-	ret.direction = r_out_perp + r_out_para + (randomUnitVec3_Reject(rseed()) * gloss);
-	ret.origin = hit.normal.origin;
-	return true;
-}
-bool diffuse(in Hit hit, out Ray ret) {
-	ret.origin = hit.normal.origin;
-	//ret.direction = cosineWeightedDirection(rseed(), hit.normal.direction);
-	//ret.direction = hit.normal.direction + uniformlyRandomVector(rseed());
-	ret.direction = hit.normal.direction + randomUnitVec3_Reject(rseed());		// ha, my method is better
-	return true;
-}
-bool redirectRay(in Ray src, in Hit hit, in Material mat, out Ray ret) {
-	float r = rand();
-	if(r < mat.specular_roughness) {
-		return diffuse(hit, ret);
-	} else if(r < mat.transmissive[0]) {
-		return refractGlossy(src, hit, ret, mat.specular_n[0], mat.specular_roughness);
-		//return _refract(src, hit, ret, mat.refraction_index);
-	} else {
-		return reflectGlossy(src, hit, ret, mat.specular_roughness);
-	}
-}
-
 
 
 bool interactsSphere(in Ray ray, in Sphere s, inout Hit hit, float t_min, float t_max) {
@@ -582,9 +512,9 @@ vec3 getSourceRay(in vec2 proportional, in mat4 inv_proj, in mat4 inv_view) {
 	vec4 t = inv_proj * vec4( (proportional * 2.0 - 1.0), 1.0, 1.0);
 	return vec3( inv_view * vec4( normalize(vec3(t) / t.w), 0) );
 }
-void DOFRay(inout Ray ray, vec3 vdir, vec3 rdir, float aperature, float focus_dist) {
+void makeDOFRay(inout Ray ray, vec3 vdir, vec3 rdir, float aperature, float focus_dist) {
 	vec3 p = ray.direction * focus_dist;
-	vec2 r = randomUnitVec2_Reject(rseed());
+	vec2 r = randomUnitVec2_Reject(rseed()) * 2.0 - 1.0;
 	vec3 o = ((vdir * r.x + rdir * r.y) * aperature / 2.0);
 	// vec3 o = ((vdir * srand(rseed()) + rdir * srand(rseed())) * aperature / 2.0);	// square bokeh
 	ray.direction = normalize(p - o);
@@ -598,11 +528,18 @@ vec3 evalRaySimple(in Ray ray) {
 	if(id < 0) { id = SKYBOX_MATERIAL_ID; }
 	Material mat;
 	material_at(id, mat);
-	return vec3(mat.emmissive[0], mat.emmissive[1], mat.emmissive[2]);	// multply or compare to emmissive to include that
+	vec3 lum = vec3(mat.emmissive[0], mat.emmissive[1], mat.emmissive[2]);
+	vec3 clr = vec3(mat.diffusive[0], mat.diffusive[1], mat.diffusive[2]);
+	if(any(greaterThan(lum, vec3(0.0)))) {
+		return lum;
+	} else if(any(greaterThan(clr, vec3(0.0)))) {
+		return clr;
+	} else {
+		return vec3(mat.transmissive[0], mat.transmissive[1], mat.transmissive[2]);
+	}
 }
-float traceSpectral(in int i, in Ray src, in int bounces) {
+float evalChannel(in int i, in Ray src, in int bounces) {
 	float total = 0.0;
-	// float cache = 1.0;
 	int material_path[MAX_RECURSIVE_MATERIALS];
 	int mat_chain_len = 0;
 	material_path[0] = SKYBOX_MATERIAL_ID;	// or eqivelant skybox material id
@@ -671,132 +608,12 @@ float traceSpectral(in int i, in Ray src, in int bounces) {
 	}
 	return total;
 }
-float testSpectral(in int i, in Ray src, in int bounces) {
-	int material_path[MAX_RECURSIVE_MATERIALS];
-	int mat_chain_len = 0;
-	material_path[0] = SKYBOX_MATERIAL_ID;	// or eqivelant skybox material id
-	float ret_ = 0.0;
-	Ray ray = src;
-	Hit hit;
-	Material mat, _mat;
-	for(int b = bounces; b >= 0; b--) {
-		hit.time = 1e10;
-		int id = interactsScene(ray, hit);
-		if(id != -1) {
-			vec2 eta_cx;
-			if(id == material_path[mat_chain_len]) {	// if interacting with the same material as the last time (internal transfer)
-				material_at(id, mat);
-				material_at(material_path[mat_chain_len - 1], _mat);	// the outer material should be one back in the chain
-				eta_cx = ir_eta_complex(
-					mat.specular_n[i], mat.specular_k[i],
-					_mat.specular_n[i], _mat.specular_k[i]);
-			} else {
-				material_at(material_path[mat_chain_len], _mat);
-				material_at(id, mat);
-				eta_cx = ir_eta_complex(
-					_mat.specular_n[i], _mat.specular_k[i],
-					mat.specular_n[i], mat.specular_k[i]);
-			}
-			vec3 src = ray.direction;
-			float cosi = min(dot(-ray.direction, hit.normal.direction), 1.0);
-			float sini = sqrt(1.0 - cosi*cosi);
-			// test if r0 or not complex --> use optimized computations
-			float refl = reflectance_complex(cosi, sini, eta_cx.x, eta_cx.y);
-			float r = rand();
-			if(r <= refl) {	// specular reflections
-				ray.origin = hit.normal.origin;
-				ray.direction = reflect(ray.direction, hit.normal.direction) + (randomUnitVec3_Reject(rseed()) * mat.specular_roughness);
-			} else {	// transmission --> can be diffused or transmitted (transparently), or [insert subsurface scattering here]
-				if(r <= mat.diffusive[i]) {
-					ray.origin = hit.normal.origin;
-					ray.direction = normalize(hit.normal.direction + randomUnitVec3_Reject(rseed()));
-				} else if(mat.transmissive[i] > 0.0) {	// compare to transmissive --> but this is just the conjugate of diffusive
-					vec3 r_out_perp = (1.0 / eta_cx.x) * (ray.direction + cosi * hit.normal.direction);
-					vec3 r_out_para = -sqrt(abs(1.0 - dot(r_out_perp, r_out_perp))) * hit.normal.direction;
-					ray.direction = normalize(r_out_perp + r_out_para) + (randomUnitVec3_Reject(rseed()) * mat.specular_roughness);
-					ray.origin = hit.normal.origin;
-					//ray.direction = refract(ray.direction, hit.normal.direction, eta_cx.x) + (randomUnitVec3_Reject(rseed()) * mat.specular_roughness);		// figure out complex ir transmission angle?
-				} else {
-					return ret_;	// absorption has occurred
-				}
-			}
-			// ret_ = float(id) / float(material_count());
-			if(dot(hit.normal.direction, src) * dot(hit.normal.direction, ray.direction) > 0.0) {	// transmission
-				if(id == material_path[mat_chain_len]) {	// transmitting out of a media
-					mat_chain_len--;
-					// ret_ = float(material_path[mat_chain_len]) / float(material_count());
-				} else {				// transmitting into a media
-					mat_chain_len++;	// compare to max length
-					material_path[mat_chain_len] = id;
-				}
-			}
-			continue;
-		}
-		break;
-	}
-	return ret_;
-}
 vec3 evalRay(in Ray ray, in int bounces) {
 	vec3 ret;
-	ret.x = traceSpectral(0, ray, bounces);
-	ret.y = traceSpectral(1, ray, bounces);
-	ret.z = traceSpectral(2, ray, bounces);
-	// ret.x = testSpectral(0, ray, bounces);
-	// ret.y = testSpectral(1, ray, bounces);
-	// ret.z = testSpectral(2, ray, bounces);
+	ret.x = evalChannel(0, ray, bounces);
+	ret.y = evalChannel(1, ray, bounces);
+	ret.z = evalChannel(2, ray, bounces);
 	return ret;
-}
-vec3 evalRayOld(in Ray src, in int bounces) {
-	vec3 total = vec3(0.0);
-	vec3 cache = vec3(1.0);
-	Ray ray = src;
-	Hit hit;
-	Material mat;
-	for(int b = bounces; b >= 0; b--) {
-		hit.time = 1e10;
-		int id = interactsScene(ray, hit);
-		if(id != -1) {
-			material_at(id, mat);
-			vec3 lum = vec3(mat.emmissive[0], mat.emmissive[1], mat.emmissive[2]);
-			vec3 clr = vec3(mat.diffusive[0], mat.diffusive[1], mat.diffusive[2]);
-			if(b == 0 || ((lum.x + lum.y + lum.z) / 3.0) >= 1.0) {
-				total += cache * lum;
-				return total;
-			}
-			Ray redirect;
-			float r = rand();
-			if(r < mat.specular_roughness) {
-				diffuse(hit, redirect);
-				total += cache * lum;
-				cache *= clr;
-				ray = redirect;
-				continue;
-			} else {
-				float ir = mat.specular_n[0];
-				if(!hit.internal) { ir = 1.0 / ir; }
-				float cos_theta = min(dot(-ray.direction, hit.normal.direction), 1.0);
-				float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
-				if ((ir * sin_theta) > 1.0 || (reflectance_approx(cos_theta, complex_r0(ir, 0.0)) > r)) {
-					reflectGlossy(ray, hit, redirect, mat.specular_roughness);
-					total += cache * lum;
-					cache *= clr;
-					ray = redirect;
-				} else {
-					total += cache * lum;
-					cache *= vec3(mat.transmissive[0], mat.transmissive[1], mat.transmissive[2]);
-					vec3 r_out_perp = ir * (ray.direction + cos_theta * hit.normal.direction);
-					vec3 r_out_para = -sqrt(abs(1.0 - dot(r_out_perp, r_out_perp))) * hit.normal.direction;
-					ray.direction = r_out_perp + r_out_para + (randomUnitVec3_Reject(rseed()) * mat.specular_roughness);
-					ray.origin = hit.normal.origin;
-				}
-				continue;
-			}
-		}
-		material_at(SKYBOX_MATERIAL_ID, mat);
-		total += cache * vec3(mat.emmissive[0], mat.emmissive[1], mat.emmissive[2]);
-		break;
-	}
-	return total;
 }
 
 out vec4 fragColor;
@@ -807,17 +624,15 @@ void main() {
 		for(int i = 0; i < samples; i++) {
 			float r = rand();
 			base.direction = getSourceRay((gl_FragCoord.xy + vec2(r)) / fsize, iproj, iview);
-			// clr += evalRaySimple(base);
-			clr += evalRayOld(base, bounces);
+			clr += evalRaySimple(base);
 		}
 	} else {
 		Ray dof;
 		for(int i = 0; i < samples; i++) {
 			float r = rand();
 			base.direction = getSourceRay((vec2(gl_FragCoord) + vec2(r)) / fsize, iproj, iview);
-			dof.origin = base.origin;
-			dof.direction = base.direction;
-			DOFRay(dof, cam_vdir, cam_rdir, aperture, focus_distance);
+			dof = base;
+			makeDOFRay(dof, cam_vdir, cam_rdir, aperture, focus_distance);
 			clr += evalRay(dof, bounces);
 		}
 	}
