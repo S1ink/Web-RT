@@ -16,6 +16,8 @@ const gl_render = buildProgram(gl, fb_vertex_src, fb_fragment_src);
 const gl_trace = buildProgram(gl, vertex_src, fragment_src);
 gl.useProgram(gl_trace);
 
+listActiveUniforms(gl, gl_trace);
+
 gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());	// go back to creating var for buffer if this inlining causes problems
 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([1, 1, -1, 1, 1, -1, -1, -1]), gl.STATIC_DRAW);
 gl.enableVertexAttribArray(0);
@@ -36,7 +38,6 @@ const Uniforms = {
 	samples :			gl.getUniformLocation(gl_trace, "samples"),
 	bounces :			gl.getUniformLocation(gl_trace, "bounces"),
 	simple :			gl.getUniformLocation(gl_trace, "simple"),
-	sky_color :			gl.getUniformLocation(gl_trace, "skycolor"),
 
 	total_samples :		gl.getUniformLocation(gl_render, "total_samples"),
 };
@@ -144,17 +145,96 @@ State.camera.iview_mat = mat4.invert(mat4.create(), State.camera.view_mat);
 State.camera.iproj_mat = mat4.invert(mat4.create(), State.camera.proj_mat);
 
 const scene = new Scene(gl, 1, gl_trace);
-scene.setSky(0.05, 0.05, 0.05);
+scene.setSky(Mat(
+	Vec3(1, 1, 1),
+	Vec3(0, 0, 0),
+	Vec3(0.0, 0.0, 0.0),
+	Vec3(1, 1, 1),
+	Vec3(0.05, 0.05, 0.05),
+	0
+));
 scene.addSpheres(
-	new Sphere(Vec3(2.1, 0.1, 2.5), 0.8, Srf(2.0, Vec3(0.5, 0.2, 0.2), Mat(1.0, 0.0, 1.0, 1.4))),
-	new Sphere(Vec3(0, 0.0, 2.5), 0.5, Srf(0.0, Vec3(1,1,1), Mat(0.0, 0.0, 1.0, 1.7))),
-	new Sphere(Vec3(0, -10, 4), 9.6, Srf(0.0, Vec3(0.7, 0.6, 0.8), Mat(0.9, 0.0, 0.0, 0.0))),
-	new Sphere(Vec3(0.5, 1.8, 4.5), 0.7, Srf(2.0, Vec3(0.1, 0.7, 0.7), Mat(1.0, 0.0, 0.0, 0.0))),
-	new Sphere(Vec3(-2, -0.3, 7), 3.0, Srf(0.0, Vec3(0.5, 0.7, 0.2), Mat(0.9, 0.1, 0.0, 0.0))),
-	new Sphere(Vec3(-2, 0, 3), 0.7, Srf(0.0, Vec3(1.0, 0.025, 0.02), Mat(0.9, 0.0, 0.0, 0.0))),
-	new Sphere(Vec3(0, 0, 4), 0.5, Srf(0.0, Vec3(0, 0.5, 0.5), Mat(0.9, 0.0, 0.0, 1.5))),
-	new Sphere(Vec3(2, 0, 5), 1.6, Srf(0.0, Vec3(0.2, 0.7, 0.3), Mat(0.1, 0.0, 1.0, 1.4))),
-	new Sphere(Vec3(-6, 3, 1.8), 1.2, Srf(20.0, Vec3(1, 1, 1), Mat(1.0, 0.0, 0.0, 0.0)))
+	new Sphere(Vec3(2.1, 0.1, 2.5), 0.8, Mat(
+		Vec3(1, 1, 1),
+		Vec3(0, 0, 0),
+		Vec3(1, 1, 1),
+		Vec3(0, 0, 0),
+		Vec3(1.0, 0.4, 0.4),
+		0.2
+	)),
+	new Sphere(Vec3(0, -10, 4), 9.6, Mat(
+		Vec3(1, 1, 1),
+		Vec3(0, 0, 0),
+		Vec3(0.7, 0.6, 0.8),
+		Vec3(0, 0, 0),
+		Vec3(0, 0, 0),
+		0.2
+	)),
+	new Sphere(Vec3(0, 0.0, 2.5), 0.5, Mat(
+		Vec3(1.3068, 1.3112, 1.3140),
+		Vec3(3.2510e-8, 2.1034e-9, 2.8610e-10),
+		Vec3(0.0, 0.0, 0.0),
+		Vec3(1.0, 1.0, 1.0),
+		Vec3(0, 0, 0),
+		0.0
+	)),
+	new Sphere(Vec3(0.5, 1.8, 4.5), 0.7, Mat(
+		Vec3(1, 1, 1),
+		Vec3(0, 0, 0),
+		Vec3(0.1, 0.7, 0.7),
+		Vec3(0, 0, 0),
+		Vec3(0.2, 1.4, 1.4),
+		0.2
+	)),
+	new Sphere(Vec3(-2, -0.3, 7), 3.0, Mat(
+		Vec3(1, 1, 1),
+		Vec3(0, 0, 0),
+		Vec3(0.5, 0.7, 0.2),
+		Vec3(0, 0, 0),
+		Vec3(0, 0, 0),
+		0.2
+	)),
+	new Sphere(Vec3(-2, 0, 3), 0.7, Mat(	// gold
+		Vec3(0.13100, 0.44715, 1.4318),
+		Vec3(4.0624, 2.4212, 1.9392),
+		Vec3(0, 0, 0),
+		Vec3(0, 0, 0),
+		Vec3(0, 0, 0),
+		0.0
+	)),
+	new Sphere(Vec3(0, 0, 4), 0.5, Mat(		// corning gorilla glass
+		Vec3(1.5198, 1.5119, 1.5078),
+		Vec3(0, 0, 0),
+		Vec3(0, 0.5, 0.5),
+		Vec3(0, 0, 0),
+		Vec3(0, 0, 0),
+		0.0
+	)),
+	new Sphere(Vec3(2, 0, 5), 1.6, Mat(
+		Vec3(1, 1, 1),
+		Vec3(0, 0, 0),
+		Vec3(0.2, 0.7, 0.3),
+		Vec3(0, 0, 0),
+		Vec3(0, 0, 0),
+		0.2
+	)),
+	new Sphere(Vec3(-2.5, 3, 4.5), 0.5, Mat(
+		Vec3(1, 1, 1),
+		Vec3(0, 0, 0),
+		Vec3(1, 1, 1),
+		Vec3(0, 0, 0),
+		Vec3(20, 20, 20),
+		0.2
+	))
+);
+let m = scene.addMaterials(
+	Mat(
+		Vec3(1.7630, 1.7707, 1.7761),
+		Vec3(0, 0, 0),
+		Vec3(0, 0, 0),
+		Vec3(1, 1, 1),
+		Vec3(0, 0, 0)
+	)
 );
 scene.addTriangles(
 	Cube.fromPoints(
@@ -166,10 +246,22 @@ scene.addTriangles(
 		Vec3(-1, 1.5, 3),
 		Vec3(-2, 1.5, 3),
 		Vec3(-2, 1.5, 4),
-		Srf(0, Vec3(0.9, 0.8, 0.3), Mat(0, 0, 1, 1.4))
+		m[0]
 	).primitives
 );
 scene.update(gl);
+console.log(scene);
+for(let i = 0; i < scene.materials.data.length; i += Material.F32_LEN) {
+	let m = new Material(
+		scene.materials.data.subarray(i + 0, i + 3),
+		scene.materials.data.subarray(i + 3, i + 6),
+		scene.materials.data.subarray(i + 6, i + 9),
+		scene.materials.data.subarray(i + 9, i + 12),
+		scene.materials.data.subarray(i + 12, i + 15),
+		scene.materials.data[i + 15]
+	);
+	console.log(m);
+}
 
 const Renderer = {
 	samplecount : 0,
@@ -372,7 +464,7 @@ function handleFovInput(e) {
 function handleApertureRange(e) {
 	const val = e.target.value;
 	const v = parseFloat(val);
-	if(v > 0) {
+	if(v >= 0) {
 		Elements.input_cam_aperture.value = val;
 		State.camera.aperture = v;
 		State.camera.updated = true;
@@ -381,7 +473,7 @@ function handleApertureRange(e) {
 function handleApertureInput(e) {
 	const val = e.target.value;
 	const v = parseFloat(val);
-	if(v > 0) {
+	if(v >= 0) {
 		Elements.range_cam_aperture.value = val;
 		State.camera.aperture = v;
 		State.camera.updated = true;
@@ -427,7 +519,7 @@ function handleBounceLimitInput(e) {
 }
 function handleSkyColorInput(e) {
 	const hex = e.target.value;
-	scene.setSky(
+	scene.skyColor(
 		parseInt(hex[1] + hex[2], 16) / 255,
 		parseInt(hex[3] + hex[4], 16) / 255,
 		parseInt(hex[5] + hex[6], 16) / 255
@@ -462,7 +554,6 @@ function initProgram() {
 	gl.uniform1f(Uniforms.aperture, cam.aperture);
 	gl.uniform1i(Uniforms.bounces, State.render.bounces);
 	gl.uniform1i(Uniforms.simple, State.render.simple * 1);
-	gl.uniform3fv(Uniforms.sky_color, scene.skycolor);
 }
 
 let ltime;
@@ -567,7 +658,8 @@ function renderTick(timestamp) {
 	}
 	if(State.scene.updated) {
 		updated = true;
-		gl.uniform3fv(Uniforms.sky_color, scene.skycolor);
+		scene.update(gl);
+		// gl.uniform3fv(Uniforms.sky_color, scene.skycolor);
 		// update texture arrays
 		State.scene.updated = false;
 	}
