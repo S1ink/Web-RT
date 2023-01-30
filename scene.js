@@ -221,10 +221,13 @@ Sphere._test = function(xyz, r, src, t_min = 0, t_max = Number.POSITIVE_INFINITY
 	let b = 2 * vec3.dot(o, src.direction);
 	let c = vec3.dot(o, o) - (r * r);
 	let d = (b * b) - (4 * a * c);
-	if(d < 0) return 0;
-	let time = (Math.sqrt(d) + b) / (-2 * a);
-	if(time < t_min || time > t_max) return 0;
-	return time;
+	if(d < 0) return [];
+	let t1 = (-Math.sqrt(d) + b) / (-2 * a);
+	let t2 = (Math.sqrt(d) + b) / (-2 * a);
+	let ret = [];
+	if(t1 > t_min && t1 < t_max) ret.push(t1);
+	if(t2 > t_min && t2 < t_max) ret.push(t2);
+	return ret;
 }
 Sphere.interacts = function(s, src, hit, t_min = 0, t_max = Number.POSITIVE_INFINITY) {
 	return this._interacts(s.center, s.radius, src, hit, t_min, t_max);
@@ -237,7 +240,12 @@ Sphere._interacts = function(xyz, r, src, hit, t_min = 0, t_max = Number.POSITIV
 	let d = (b * b) - (4 * a * c);
 	if(d < 0) return false;
 	hit.time = (Math.sqrt(d) + b) / (-2 * a);
-	if(hit.time < t_min || hit.time > t_max) return false;
+	if(hit.time < t_min || hit.time > t_max) {
+		hit.time = (-Math.sqrt(d) + b) / (-2 * a);
+		if(hit.time < t_min || hit.time > t_max) {
+			return false;
+		}
+	}
 	vec3.scaleAndAdd(hit.normal.origin, src.origin, src.direction, hit.time);
 	vec3.sub(hit.normal.direction, hit.normal.origin, xyz);
 	vec3.scale(hit.normal.direction, hit.normal.direction, 1 / r);
@@ -258,18 +266,18 @@ Triangle._test = function(a, b, c, src, t_min = 0, t_max = Number.POSITIVE_INFIN
 
 	vec3.cross(h, src.direction, s2);
 	d = vec3.dot(s1, h);
-	if(d > -EPSILON && d < EPSILON) return 0;
+	if(d > -EPSILON && d < EPSILON) return [];
 	f = 1 / d;
 	vec3.sub(s, src.origin, a);
 	u = f * vec3.dot(s, h);
-	if(u < 0 || u > 1) return 0;
+	if(u < 0 || u > 1) return [];
 	vec3.cross(q, s, s1);
 	v = f * vec3.dot(src.direction, q);
-	if(v < 0 || u + v > 1) return 0;
+	if(v < 0 || u + v > 1) return [];
 
 	let time = f * vec3.dot(s2, q);
-	if(time <= EPSILON || time < t_min || time > t_max) return 0;
-	return time;
+	if(Math.abs(time) <= EPSILON || time < t_min || time > t_max) return [];
+	return [time];
 }
 Triangle.interacts = function(t, src, hit, t_min = 0, t_max = Number.POSITIVE_INFINITY) {
 	return this._interacts(t.a, t.b, t.c, src, hit, t_min, t_max);
@@ -293,7 +301,7 @@ Triangle._interacts = function(a, b, c, src, hit, t_min = 0, t_max = Number.POSI
 	if(v < 0 || u + v > 1) return false;
 
 	hit.time = f * vec3.dot(s2, q);
-	if(hit.time <= EPSILON || hit.time < t_min || hit.time > t_max) return false;
+	if(Math.abs(hit.time) <= EPSILON || hit.time < t_min || hit.time > t_max) return false;
 	vec3.scaleAndAdd(hit.normal.origin, src.origin, src.direction, hit.time);
 	vec3.cross(hit.normal.direction, s1, s2);
 	if(vec3.dot(hit.normal.direction, src.direction) > 0) {
@@ -508,7 +516,7 @@ class Scene {
 		for(let i = 0; i < this.spheres.data.length; i += Sphere.F32_LEN) {
 			if(t = Sphere._test(
 				this.spheres.data.subarray(i, i + 3),
-				this.spheres.data[i + 3], src, 0, t_max)
+				this.spheres.data[i + 3], src, 0, t_max)[0]
 			) {
 				t_max = t;
 				ret.idx = i / Sphere.F32_LEN;
@@ -520,7 +528,7 @@ class Scene {
 				this.triangles.data.subarray(i + 0, i + 3),
 				this.triangles.data.subarray(i + 3, i + 6),
 				this.triangles.data.subarray(i + 6, i + 9),
-				src, 0, t_max)
+				src, 0, t_max)[0]
 			) {
 				t_max = t;
 				ret.idx = i / Triangle.F32_LEN;
@@ -528,5 +536,96 @@ class Scene {
 			}
 		}
 		return ret;
+	}
+	listAllInteractions(src, t_min = Number.NEGATIVE_INFINITY, t_max = Number.POSITIVE_INFINITY) {
+		let list = [];
+		let t;
+		for(let i = 0; i < this.spheres.data.length; i += Sphere.F32_LEN) {
+			if(t = Sphere._test(
+				this.spheres.data.subarray(i, i + 3),
+				this.spheres.data[i + 3], src, t_min, t_max)
+			) {
+				for(let j = 0; j < t.length; j++) {
+					list.push({
+						time: t[j],
+						m_id: this.spheres.data[i + 4]
+					});
+				}
+			}
+		}
+		for(let i = 0; i < this.triangles.data.length; i += Triangle.F32_LEN) {
+			if(t = Triangle._test(
+				this.triangles.data.subarray(i + 0, i + 3),
+				this.triangles.data.subarray(i + 3, i + 6),
+				this.triangles.data.subarray(i + 6, i + 9),
+				src, t_min, t_max)[0]
+			) {
+				list.push({
+					time: t,
+					m_id: this.triangles.data[i + 9]
+				})
+			}
+		}
+		return list;
+	}
+	getMatChain(src) {
+		let list = this.listAllInteractions(src);
+		list.sort((a, b) => a.time - b.time);
+		let i = 0;
+		let split = -1;
+		while(i < list.length - 1) {
+			let a = list[i];
+			let b = list[i + 1];
+			let coherent = (a.time * b.time) > 0;
+			if(a.m_id == b.m_id && coherent) {
+				list.splice(i, 2);
+			} else {
+				if(!coherent) {
+					split = i;
+				}
+				i++;
+			}
+		}
+		if(split >= 0) {
+			let b = split;
+			let f = split + 1;
+			let filtered = [];
+			while(b >= 0 && f < list.length) {
+				let x = true;
+				for(let i = f; i < list.length; i++) {
+					if(list[b].m_id == list[i].m_id) {
+						x = false;
+						filtered.push(list[b].m_id);
+						list.splice(i, 1);
+						list.splice(b, 1);
+						b--;
+						f--;
+						break;
+					}
+				}
+				if(x) {
+					list.splice(b, 1);
+					b--;
+					f--;
+				}
+				x = false;
+				for(let i = b; i >= 0; i--) {
+					if(list[f].m_id == list[i].m_id) {
+						x = false;
+						filtered.push(list[f].m_id);
+						list.splice(f, 1);
+						list.splice(i, 1);
+						b--;
+						f--;
+						break;
+					}
+				}
+				if(x) {
+					list.splice(f, 1);
+				}
+			}
+			return filtered;
+		}
+		return [];
 	}
 }

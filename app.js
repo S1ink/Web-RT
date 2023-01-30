@@ -16,7 +16,7 @@ const gl_render = buildProgram(gl, fb_vertex_src, fb_fragment_src);
 const gl_trace = buildProgram(gl, vertex_src, fragment_src);
 gl.useProgram(gl_trace);
 
-listActiveUniforms(gl, gl_trace);
+// listActiveUniforms(gl, gl_trace);
 
 gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());	// go back to creating var for buffer if this inlining causes problems
 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([1, 1, -1, 1, 1, -1, -1, -1]), gl.STATIC_DRAW);
@@ -38,6 +38,8 @@ const Uniforms = {
 	samples :			gl.getUniformLocation(gl_trace, "samples"),
 	bounces :			gl.getUniformLocation(gl_trace, "bounces"),
 	simple :			gl.getUniformLocation(gl_trace, "simple"),
+	mat_chain_skybox :	gl.getUniformLocation(gl_trace, "material_chain[0]"),
+	mat_chain_len :		gl.getUniformLocation(gl_trace, "material_chain_len"),
 
 	total_samples :		gl.getUniformLocation(gl_render, "total_samples"),
 };
@@ -146,12 +148,11 @@ State.camera.iproj_mat = mat4.invert(mat4.create(), State.camera.proj_mat);
 
 const scene = new Scene(gl, 1, gl_trace);
 scene.setSky(Mat(
-	Vec3(1, 1, 1),
+	Vec3(1.0, 1.0, 1.0),
 	Vec3(0, 0, 0),
 	Vec3(0.0, 0.0, 0.0),
 	Vec3(1, 1, 1),
 	Vec3(0.05, 0.05, 0.05),
-	0
 ));
 scene.addSpheres(
 	new Sphere(Vec3(2.1, 0.1, 2.5), 0.8, Mat(
@@ -171,12 +172,14 @@ scene.addSpheres(
 		0.2
 	)),
 	new Sphere(Vec3(0, 0.0, 2.5), 0.5, Mat(
-		Vec3(1.3068, 1.3112, 1.3140),
-		Vec3(3.2510e-8, 2.1034e-9, 2.8610e-10),
+		Vec3(2.4065, 2.4232, 2.4445),
+		Vec3(0, 0, 0),
+		// Vec3(1.3068, 1.3112, 1.3140),
+		// Vec3(3.2510e-8, 2.1034e-9, 2.8610e-10),
 		Vec3(0.0, 0.0, 0.0),
 		Vec3(1.0, 1.0, 1.0),
 		Vec3(0, 0, 0),
-		0.0
+		0.01
 	)),
 	new Sphere(Vec3(0.5, 1.8, 4.5), 0.7, Mat(
 		Vec3(1, 1, 1),
@@ -249,19 +252,120 @@ scene.addTriangles(
 		m[0]
 	).primitives
 );
+// let mats = scene.addMaterials(
+// 	Mat(
+// 		Vec3(1.0, 1.0, 1.0),
+// 		Vec3(0, 0, 0),
+// 		Vec3(0.5, 0.5, 0.5),
+// 		Vec3(0, 0, 0),
+// 		Vec3(0, 0, 0)),
+// 	Mat(
+// 		Vec3(1.0, 1.0, 1.0),
+// 		Vec3(0, 0, 0),
+// 		Vec3(0, 0, 0),
+// 		Vec3(0, 0, 0),
+// 		Vec3(100, 100, 100)
+// 	),
+// 	Mat(
+// 		Vec3(1.8, 2, 2.2),
+// 		Vec3(0, 0, 0),
+// 		Vec3(0, 0, 0),
+// 		Vec3(1, 1, 1),
+// 		Vec3(0, 0, 0)
+// 	),
+// );
+// scene.addTriangles(
+// 	new Triangle(
+// 		Vec3(-5, -0.6, 1),
+// 		Vec3(-5, -0.6, 11),
+// 		Vec3( 5, -0.6, 1),
+// 		mats[0]
+// 	),
+// 	new Triangle(
+// 		Vec3( 5, -0.6, 1),
+// 		Vec3( 5, -0.6, 11),
+// 		Vec3(-5, -0.6, 11),
+// 		mats[0]
+// 	),
+// 	new Triangle(
+// 		Vec3(4, 1, 5),
+// 		Vec3(4, 3, 6),
+// 		Vec3(4, 1, 7),
+// 		mats[1]
+// 	),
+// 	new Triangle(
+// 		Vec3(1.1, -1, 4),
+// 		Vec3(1.1, -1, 5.95),
+// 		Vec3(1.1, 4, 5.95),
+// 		mats[0]
+// 	),
+// 	new Triangle(
+// 		Vec3(1.1, -1, 8),
+// 		Vec3(1.1, -1, 6.05),
+// 		Vec3(1.1, 4, 6.05),
+// 		mats[0]
+// 	),
+// 	new Triangle(
+// 		Vec3(-2, -1, 3),
+// 		Vec3(-2, -1, 9),
+// 		Vec3(-2,  5, 3),
+// 		mats[0]
+// 	),
+// // base
+// 	new Triangle(
+// 		Vec3( 1, -0.5, 6),
+// 		Vec3(-1, -0.5, 7),
+// 		Vec3(-1, -0.5, 5),
+// 		mats[2]
+// 	),
+// // s1
+// 	new Triangle(
+// 		Vec3( 1, -0.5, 6),
+// 		Vec3(-1, -0.5, 7),
+// 		Vec3( 1,  1.5, 6),
+// 		mats[2]
+// 	),
+// 	new Triangle(
+// 		Vec3( 1,  1.5, 6),
+// 		Vec3(-1, -0.5, 7),
+// 		Vec3(-1,  1.5, 7),
+// 		mats[2]
+// 	),
+// // s2
+// 	new Triangle(
+// 		Vec3( 1, -0.5, 6),
+// 		Vec3(-1, -0.5, 5),
+// 		Vec3( 1,  1.5, 6),
+// 		mats[2]
+// 	),
+// 	new Triangle(
+// 		Vec3( 1,  1.5, 6),
+// 		Vec3(-1, -0.5, 5),
+// 		Vec3(-1,  1.5, 5),
+// 		mats[2]
+// 	),
+// // s3
+// 	new Triangle(
+// 		Vec3(-1,  1.5, 7),
+// 		Vec3(-1,  1.5, 5),
+// 		Vec3(-1, -0.5, 7),
+// 		mats[2]
+// 	),
+// 	new Triangle(
+// 		Vec3(-1, -0.5, 5),
+// 		Vec3(-1, -0.5, 7),
+// 		Vec3(-1,  1.5, 5),
+// 		mats[2]
+// 	),
+// // top
+// 	new Triangle(
+// 		Vec3( 1, 1.5, 6),
+// 		Vec3(-1, 1.5, 7),
+// 		Vec3(-1, 1.5, 5),
+// 		mats[2]
+// 	)
+// )
 scene.update(gl);
-console.log(scene);
-for(let i = 0; i < scene.materials.data.length; i += Material.F32_LEN) {
-	let m = new Material(
-		scene.materials.data.subarray(i + 0, i + 3),
-		scene.materials.data.subarray(i + 3, i + 6),
-		scene.materials.data.subarray(i + 6, i + 9),
-		scene.materials.data.subarray(i + 9, i + 12),
-		scene.materials.data.subarray(i + 12, i + 15),
-		scene.materials.data[i + 15]
-	);
-	console.log(m);
-}
 
 const Renderer = {
 	samplecount : 0,
@@ -554,6 +658,8 @@ function initProgram() {
 	gl.uniform1f(Uniforms.aperture, cam.aperture);
 	gl.uniform1i(Uniforms.bounces, State.render.bounces);
 	gl.uniform1i(Uniforms.simple, State.render.simple * 1);
+	gl.uniform1i(Uniforms.mat_chain_skybox, 0);
+	gl.uniform1i(Uniforms.mat_chain_len, 0);
 }
 
 let ltime;
@@ -602,6 +708,19 @@ function renderTick(timestamp) {
 			gl.uniformMatrix4fv(Uniforms.iview, false, cam.iview_mat);
 			gl.uniform3fv(Uniforms.cam_vdir, cam.vdir);
 			gl.uniform3fv(Uniforms.cam_rdir, cam.rdir);
+		}
+		if(updated) {	// if the camera moved
+			let r = new Ray();
+			r.origin = cam.pos;
+			r.direction = cam.fdir;
+			let chain = scene.getMatChain(r);
+			for(let i = 0; i < chain.length; i++) {
+				gl.uniform1i(
+					gl.getUniformLocation(gl_trace, `material_chain[${i + 1}]`),
+					chain[i]
+				);
+			}
+			gl.uniform1i(Uniforms.mat_chain_len, chain.length);
 		}
 	}
 	if(fsize.updated) {

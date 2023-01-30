@@ -154,6 +154,13 @@ uniform int simple;
 #define MAX_RECURSIVE_MATERIALS 32
 #define SKYBOX_MATERIAL_ID 0
 
+uniform sampler2D sphere_data;
+uniform sampler2D triangle_data;
+uniform sampler2D material_data;
+uniform int material_chain[MAX_RECURSIVE_MATERIALS];
+uniform int material_chain_len;
+// something to indicate selected objects
+
 struct Sphere {
 	vec3 center;
 	float radius;
@@ -172,11 +179,6 @@ struct Material {
 	float emmissive[3];			// emmission for each wavelength RGB
 	float specular_roughness;	// glossiness - a measure of micro-geometry
 };
-
-uniform sampler2D sphere_data;
-uniform sampler2D triangle_data;
-uniform sampler2D material_data;
-// something to indicate selected objects
 
 void sphere_at(in int num, out Sphere s) {
 	s.center = vec3(
@@ -540,71 +542,68 @@ vec3 evalRaySimple(in Ray ray) {
 }
 float evalChannel(in int i, in Ray src, in int bounces) {
 	float total = 0.0;
-	int material_path[MAX_RECURSIVE_MATERIALS];
-	int mat_chain_len = 0;
-	material_path[0] = SKYBOX_MATERIAL_ID;	// or eqivelant skybox material id
+	int mat_chain[MAX_RECURSIVE_MATERIALS] = material_chain;
+	int mat_chain_len = material_chain_len;
 	Ray ray = src;
 	Hit hit;
 	Material mat, _mat;
 	for(int b = bounces; b >= 0; b--) {
 		hit.time = 1e10;
 		int id = interactsScene(ray, hit);
-		if(id != -1) {
-			vec2 eta_cx;
-			if(id == material_path[mat_chain_len]) {	// if interacting with the same material as the last time (internal transfer)
-				material_at(id, mat);
-				material_at(material_path[mat_chain_len - 1], _mat);	// the outer material should be one back in the chain
-				eta_cx = ir_eta_complex(
-					mat.specular_n[i], mat.specular_k[i],
-					_mat.specular_n[i], _mat.specular_k[i]);
-			} else {
-				material_at(material_path[mat_chain_len], _mat);
-				material_at(id, mat);
-				eta_cx = ir_eta_complex(
-					_mat.specular_n[i], _mat.specular_k[i],
-					mat.specular_n[i], mat.specular_k[i]);
-			}
-			if(b == 0 || mat.emmissive[i] >= 1.0) {
-				return total + mat.emmissive[i];	// emmissive * cache , but this is currently always 1
-			}
-			vec3 src = ray.direction;
-			float cosi = min(dot(-ray.direction, hit.normal.direction), 1.0);
-			float sini = sqrt(1.0 - cosi*cosi);
-			// test if r0 or not complex --> use optimized computations
-			float refl = reflectance_complex(cosi, sini, eta_cx.x, eta_cx.y);
-			float r = rand();
-			if(r <= refl) {	// specular reflections
-				ray.origin = hit.normal.origin;
-				ray.direction = reflect(ray.direction, hit.normal.direction) + (randomUnitVec3_Reject(rseed()) * mat.specular_roughness);
-			} else {	// transmission --> can be diffused or transmitted (transparently), or [insert subsurface scattering here]
-				if(r <= mat.diffusive[i]) {
-					ray.origin = hit.normal.origin;
-					ray.direction = hit.normal.direction + randomUnitVec3_Reject(rseed());
-				} else if(mat.transmissive[i] > 0.0) {	// compare to transmissive --> but this is just the conjugate of diffusive
-					vec3 r_out_perp = (1.0 / eta_cx.x) * (ray.direction + cosi * hit.normal.direction);
-					vec3 r_out_para = -sqrt(abs(1.0 - dot(r_out_perp, r_out_perp))) * hit.normal.direction;
-					ray.direction = normalize(r_out_perp + r_out_para) + (randomUnitVec3_Reject(rseed()) * mat.specular_roughness);
-					ray.origin = hit.normal.origin;
-					//ray.direction = refract(ray.direction, hit.normal.direction, eta_cx.x) + (randomUnitVec3_Reject(rseed()) * mat.specular_roughness);		// figure out complex ir transmission angle?
-				} else {
-					return 0.0;	// absorption has occurred
-				}
-			}
-			if(dot(hit.normal.direction, src) * dot(hit.normal.direction, ray.direction) > 0.0) {	// transmission
-				if(id == material_path[mat_chain_len]) {	// transmitting out of a media
-					mat_chain_len--;
-				} else {				// transmitting into a media
-					mat_chain_len++;	// compare to max length
-					material_path[mat_chain_len] = id;
-				}
-			}
-			total += mat.emmissive[i];	// see earlier comment about multiplying by cache if ever not 1
-			continue;
-			// could exit if total > 1.0, but this might mess up the temporal convergence
+		if(id < 0) {
+			material_at(mat_chain[SKYBOX_MATERIAL_ID], mat);
+			total += mat.emmissive[i];
+			break;
 		}
-		material_at(material_path[0], mat);
+		vec2 eta_cx;
+		if(id == mat_chain[mat_chain_len]) {	// if interacting with the same material as the last time (internal transfer)
+			material_at(id, mat);
+			material_at(mat_chain[mat_chain_len - 1], _mat);	// the outer material should be one back in the chain
+			eta_cx = ir_eta_complex(
+				mat.specular_n[i], mat.specular_k[i],
+				_mat.specular_n[i], _mat.specular_k[i]);
+		} else {
+			material_at(mat_chain[mat_chain_len], _mat);
+			material_at(id, mat);
+			eta_cx = ir_eta_complex(
+				_mat.specular_n[i], _mat.specular_k[i],
+				mat.specular_n[i], mat.specular_k[i]);
+		}
+		if(b == 0 || mat.emmissive[i] >= 1.0) {
+			return total + mat.emmissive[i];	// emmissive * cache , but this is currently always 1
+		}
+		vec3 src = ray.direction;
+		float cosi = min(dot(-ray.direction, hit.normal.direction), 1.0);
+		float sini = sqrt(1.0 - cosi*cosi);
+		// test if r0 or not complex --> use optimized computations
+		float refl = reflectance_complex(cosi, sini, eta_cx.x, eta_cx.y);
+		float r = rand();
+		if(r <= refl) {	// specular reflections
+			ray.origin = hit.normal.origin;
+			ray.direction = reflect(ray.direction, hit.normal.direction) + (randomUnitVec3_Reject(rseed()) * mat.specular_roughness);
+		} else {	// transmission --> can be diffused or transmitted (transparently), or [insert subsurface scattering here]
+			if(r <= mat.diffusive[i]) {
+				ray.origin = hit.normal.origin;
+				ray.direction = hit.normal.direction + randomUnitVec3_Reject(rseed());
+			} else if(mat.transmissive[i] > 0.0) {	// compare to transmissive --> but this is just the conjugate of diffusive
+				vec3 r_out_perp = (1.0 / eta_cx.x) * (ray.direction + cosi * hit.normal.direction);
+				vec3 r_out_para = -sqrt(abs(1.0 - dot(r_out_perp, r_out_perp))) * hit.normal.direction;
+				ray.direction = normalize(r_out_perp + r_out_para) + (randomUnitVec3_Reject(rseed()) * mat.specular_roughness);
+				ray.origin = hit.normal.origin;
+				//ray.direction = refract(ray.direction, hit.normal.direction, eta_cx.x) + (randomUnitVec3_Reject(rseed()) * mat.specular_roughness);		// figure out complex ir transmission angle?
+			} else {
+				return 0.0;	// absorption has occurred
+			}
+		}
+		if(dot(hit.normal.direction, src) * dot(hit.normal.direction, ray.direction) > 0.0) {	// transmission
+			if(id == mat_chain[mat_chain_len]) {	// transmitting out of a media
+				mat_chain_len--;
+			} else {				// transmitting into a media
+				mat_chain_len++;	// compare to max length
+				mat_chain[mat_chain_len] = id;
+			}
+		}
 		total += mat.emmissive[i];	// see earlier comment about multiplying by cache if ever not 1
-		break;
 	}
 	return total;
 }
