@@ -3,8 +3,9 @@
 #### All the newest features:
 
 ![download (11)](https://user-images.githubusercontent.com/60528506/215303533-4396930e-4bae-4df5-b958-12d68ae999b2.png)
-![download (10)](https://user-images.githubusercontent.com/60528506/215303532-abb26f32-5939-40e4-ba9d-139e4efaba56.png)
+![download (8)](https://user-images.githubusercontent.com/60528506/215367655-d7cb6174-d15b-4a04-bb0e-6ffdc465a13e.png)
 ![download (6)](https://user-images.githubusercontent.com/60528506/215303536-f54f54b5-38b1-4b8b-829b-536590cfcbd5.png)
+![download (10)](https://user-images.githubusercontent.com/60528506/215303532-abb26f32-5939-40e4-ba9d-139e4efaba56.png)
 ![download (7)](https://user-images.githubusercontent.com/60528506/215303538-04754507-452d-4787-9c6b-f41d6b81eb42.png)
 ![download (9)](https://user-images.githubusercontent.com/60528506/215303529-b9c72717-6103-40df-9a45-627d69f847f3.png)
 
