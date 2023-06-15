@@ -332,6 +332,22 @@ vec3 uniformlyRandomDirection(float seed) {
 vec3 uniformlyRandomVector(float seed) {
 	return uniformlyRandomDirection(seed) * sqrt(s_random_gen(_rc3_, seed));
 }
+vec2 uniformUnitVec2(float seed) {	// random vec2 of length 1
+	float theta = PI2 * s_random_gen(_rc1_, seed);
+	return vec2(cos(theta), sin(theta));
+}
+vec3 uniformUnitVec3(float seed) {	// convert phi and theta to a unit direction -- no rho needed because the length is always 1
+	float phi =		PI * s_random_gen(_rc1_, seed);
+	float theta =	PI2 * s_random_gen(_rc2_, seed);
+	float sin_phi = sin(phi);
+	return vec3(sin_phi*cos(theta), sin_phi*sin(theta), cos(phi));	// x=sin(phi)*cos(theta), y=sin(phi)*sin(theta), z=cos(phi)
+}
+vec2 uniformRandomVec2(float seed) {	// random vec2 within a unit circle
+	return s_random_gen(_rc2_, seed) * uniformUnitVec2(seed);
+}
+vec3 uniformRandomVec3(float seed) {	// random vec3 within a unit sphere
+	return s_random_gen(_rc3_, seed) * uniformUnitVec3(seed);
+}
 vec2 randomUnitVec2_Reject(float seed) {
 	while(true) {
 		vec2 test = srandVec2(seed);
@@ -516,7 +532,7 @@ vec3 getSourceRay(in vec2 proportional, in mat4 inv_proj, in mat4 inv_view) {
 }
 void makeDOFRay(inout Ray ray, vec3 vdir, vec3 rdir, float aperature, float focus_dist) {
 	vec3 p = ray.direction * focus_dist;
-	vec2 r = randomUnitVec2_Reject(rseed()) * 2.0 - 1.0;
+	vec2 r = uniformRandomVec2(rseed()) * 2.0 - 1.0;
 	vec3 o = ((vdir * r.x + rdir * r.y) * aperature / 2.0);
 	// vec3 o = ((vdir * srand(rseed()) + rdir * srand(rseed())) * aperature / 2.0);	// square bokeh
 	ray.direction = normalize(p - o);
@@ -580,15 +596,15 @@ float evalChannel(in int i, in Ray src, in int bounces) {
 		float r = rand();
 		if(r <= refl) {	// specular reflections
 			ray.origin = hit.normal.origin;
-			ray.direction = reflect(ray.direction, hit.normal.direction) + (randomUnitVec3_Reject(rseed()) * mat.specular_roughness);
+			ray.direction = reflect(ray.direction, hit.normal.direction) + (uniformUnitVec3(rseed()) * mat.specular_roughness);
 		} else {	// transmission --> can be diffused or transmitted (transparently), or [insert subsurface scattering here]
 			if(r <= mat.diffusive[i]) {
 				ray.origin = hit.normal.origin;
-				ray.direction = hit.normal.direction + randomUnitVec3_Reject(rseed());
+				ray.direction = hit.normal.direction + uniformUnitVec3(rseed());
 			} else if(mat.transmissive[i] > 0.0) {	// compare to transmissive --> but this is just the conjugate of diffusive
 				vec3 r_out_perp = (1.0 / eta_cx.x) * (ray.direction + cosi * hit.normal.direction);
 				vec3 r_out_para = -sqrt(abs(1.0 - dot(r_out_perp, r_out_perp))) * hit.normal.direction;
-				ray.direction = normalize(r_out_perp + r_out_para) + (randomUnitVec3_Reject(rseed()) * mat.specular_roughness);
+				ray.direction = normalize(r_out_perp + r_out_para) + (uniformUnitVec3(rseed()) * mat.specular_roughness);
 				ray.origin = hit.normal.origin;
 				//ray.direction = refract(ray.direction, hit.normal.direction, eta_cx.x) + (randomUnitVec3_Reject(rseed()) * mat.specular_roughness);		// figure out complex ir transmission angle?
 			} else {
