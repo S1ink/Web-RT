@@ -113,6 +113,35 @@ class Material extends GLStruct {	// This doesn't have to be the only material t
 
 }
 function Mat(spn, spk, d, t, e, rgh) { return new Material(spn, spk, d, t, e, rgh); }
+function DiffuseMat(spectrum) {
+	return new Material(
+		Vec3(1, 1, 1),
+		Vec3(0, 0, 0),
+		spectrum,
+		Vec3(0, 0, 0),
+		Vec3(0, 0, 0),
+		0
+	)
+}
+function RefractiveMat(n, t, r) {
+	return new Material(
+		n,
+		Vec3(0, 0, 0),
+		Vec3(0, 0, 0),
+		t,
+		Vec3(0, 0, 0),
+		r ?? 0
+	)
+}
+function EmmissiveMat(l) {
+	return new Material(
+		Vec3(1, 1, 1),
+		Vec3(0, 0, 0),
+		Vec3(1, 1, 1),
+		Vec3(0, 0, 0),
+		l, 0
+	)
+}
 
 /**
  * All interactables should "have" (not be) a surface. (this makes it easy to send to glsl)
@@ -180,6 +209,21 @@ class Triangle extends GLStruct {
 		return this.mat.update(gl);
 	}
 
+}
+class Quad {
+	constructor() {
+		this.primitives = [];
+	}
+
+	static fromCorners(a, b, c, d, mat) {
+		const q = new Quad();
+		let m = mat ?? -1;
+		q.primitives = [
+			new Triangle(a, b, c, m),
+			new Triangle(c, d, a, m)
+		];
+		return q;
+	}
 }
 class Cube {
 	constructor() {
