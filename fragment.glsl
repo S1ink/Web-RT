@@ -134,16 +134,17 @@ int material_count() {
 
 /* RANDOM */
 
-const vec3 _rc1_ = vec3(12.9898, 78.233, 151.7182);
+const vec3 _rc1_ = vec3(42.9898, 78.233, 151.7182);
 const vec3 _rc2_ = vec3(63.7264, 10.873, 623.6736);
 const vec3 _rc3_ = vec3(36.7539, 50.3658, 306.2759);
-float _rseed_ = (PI / PHI);
+
+highp float _rseed_ = (PI / PHI);
 float rseed() {
-	_rseed_ += (fract(sqrt(realtime)));
+	_rseed_ += (fract(sqrt(realtime)) + 0.148392798);
 	return _rseed_;
 }
 
-float s_random_gen(in vec3 scale, in float seed) {
+float s_random_gen(in vec3 scale, in float seed) {	// random in the range [0.0, 1.0)
 	highp float d = 43758.5453;
 	highp float dt = dot(gl_FragCoord.xyz + seed, scale);
 	highp float sn = mod(dt, PI);
@@ -152,97 +153,76 @@ float s_random_gen(in vec3 scale, in float seed) {
 float random_gen(in vec3 scale) {
 	return s_random_gen(scale, rseed());
 }
-float srand(in float seed) { return s_random_gen(gl_FragCoord.xyz * realtime, seed); }
-float rand() { return random_gen(gl_FragCoord.xyz * realtime); }
-
-vec2 randVec2() {
-	return (vec2(
-		random_gen(_rc1_),
-		random_gen(_rc2_)
-	) * 2.0 - 1.0);
+float s_random(in float seed) {
+	return s_random_gen(gl_FragCoord.xyz * realtime, seed);
 }
-vec2 srandVec2(in float seed) {
+float random() {
+	return random_gen(gl_FragCoord.xyz * realtime);
+}
+
+vec2 s_randomVec2(in float seed) {	// vectors are in the range (-1, 1)
 	return (vec2(
 		s_random_gen(_rc1_, seed),
 		s_random_gen(_rc2_, seed)
 	) * 2.0 - 1.0);
 }
-vec3 randVec3() {
-	return (vec3(
+vec2 randomVec2() {
+	return (vec2(
 		random_gen(_rc1_),
-		random_gen(_rc2_),
-		random_gen(_rc3_)
+		random_gen(_rc2_)
 	) * 2.0 - 1.0);
 }
-vec3 srandVec3(in float seed) {
+vec3 s_randomVec3(in float seed) {
 	return (vec3(
 		s_random_gen(_rc1_, seed),
 		s_random_gen(_rc2_, seed),
 		s_random_gen(_rc3_, seed)
 	) * 2.0 - 1.0);
 }
-vec3 randomUnitVector() { return normalize(randVec3()); }
-vec3 seededRandomUnitVector(in float seed) { return normalize(srandVec3(seed)); }
+vec3 randomVec3() {
+	return (vec3(
+		random_gen(_rc1_),
+		random_gen(_rc2_),
+		random_gen(_rc3_)
+	) * 2.0 - 1.0);
+}
 
-vec3 cosineWeightedDirection(float seed, vec3 normal) {
-	float u = s_random_gen(_rc1_, seed);
-	float v = s_random_gen(_rc2_, seed);
-	float r = sqrt(u);
-	float angle = PI2 * v;	// compute basis from normal
-	vec3 sdir, tdir;
-	if (abs(normal.x) < .5) {
-		sdir = cross(normal, vec3(1,0,0));
-	} else {
-		sdir = cross(normal, vec3(0,1,0));
+vec2 s_randomUnitVec2_Reject(float seed) {	// random unit vectors using a rejection method -- not necessarily uniform
+	while(true) {
+		vec2 test = s_randomVec2(seed);
+		if(dot(test, test) <= 1.0) {
+			return test;
+		}
+		seed += 1.0;
 	}
-	tdir = cross(normal, sdir);
-	return r * cos(angle) * sdir + r * sin(angle) * tdir + sqrt(1. - u) * normal;
 }
-vec3 uniformlyRandomDirection(float seed) {
-	float u = s_random_gen(_rc1_, seed);
-	float v = s_random_gen(_rc2_, seed);
-	float z = 1.0 - 2.0 * u;
-	float r = sqrt(1.0 - z * z);
-	float angle = PI2 * v;
-	return vec3(r * cos(angle), r * sin(angle), z);
+vec3 s_randomUnitVec3_Reject(float seed) {
+	while(true) {
+		vec3 test = s_randomVec3(seed);
+		if(dot(test, test) <= 1.0) {
+			return test;
+		}
+		seed += 1.0;
+	}
 }
-vec3 uniformlyRandomVector(float seed) {
-	return uniformlyRandomDirection(seed) * sqrt(s_random_gen(_rc3_, seed));
+
+vec3 uniformlyRandomUnitVec3(float seed) {		// uniform unit vector generation using spherical/polar coords
+	float cos_phi = s_random_gen(_rc1_, seed) * 2.0 - 1.0;
+	float theta = s_random_gen(_rc2_, seed) * PI2;
+	float sin_phi = sqrt(1.0 - cos_phi * cos_phi);
+	return vec3(sin_phi * cos(theta), sin_phi * sin(theta), cos_phi);
 }
-vec2 uniformUnitVec2(float seed) {	// random vec2 of length 1
+vec3 uniformlyRandomVec3(float seed) {
+	return uniformlyRandomUnitVec3(seed) * sqrt(s_random_gen(_rc3_, seed));
+}
+vec2 uniformlyRandomUnitVec2(float seed) {	// random vec2 of length 1
 	float theta = PI2 * s_random_gen(_rc1_, seed);
 	return vec2(cos(theta), sin(theta));
 }
-vec3 uniformUnitVec3(float seed) {	// convert phi and theta to a unit direction -- no rho needed because the length is always 1
-	float phi =		PI * s_random_gen(_rc1_, seed);
-	float theta =	PI2 * s_random_gen(_rc2_, seed);
-	float sin_phi = sin(phi);
-	return vec3(sin_phi*cos(theta), sin_phi*sin(theta), cos(phi));	// x=sin(phi)*cos(theta), y=sin(phi)*sin(theta), z=cos(phi)
+vec2 uniformlyRandomVec2(float seed) {	// random vec2 within a unit circle
+	return uniformlyRandomUnitVec2(seed) * s_random_gen(_rc2_, seed);
 }
-vec2 uniformRandomVec2(float seed) {	// random vec2 within a unit circle
-	return s_random_gen(_rc2_, seed) * uniformUnitVec2(seed);
-}
-vec3 uniformRandomVec3(float seed) {	// random vec3 within a unit sphere
-	return s_random_gen(_rc3_, seed) * uniformUnitVec3(seed);
-}
-vec2 randomUnitVec2_Reject(float seed) {
-	while(true) {
-		vec2 test = srandVec2(seed);
-		if(dot(test, test) <= 1.0) {
-			return test;
-		}
-		seed += 1.0;
-	}
-}
-vec3 randomUnitVec3_Reject(float seed) {
-	while(true) {
-		vec3 test = srandVec3(seed);
-		if(dot(test, test) <= 1.0) {
-			return test;
-		}
-		seed += 1.0;
-	}
-}
+
 
 
 
@@ -409,9 +389,9 @@ vec3 getSourceRay(in vec2 proportional, in mat4 inv_proj, in mat4 inv_view) {
 }
 void makeDOFRay(inout Ray ray, vec3 vdir, vec3 rdir, float aperature, float focus_dist) {
 	vec3 p = ray.direction * focus_dist;
-	vec2 r = uniformRandomVec2(rseed()) * 2.0 - 1.0;
+	vec2 r = uniformlyRandomVec2(rseed());
 	vec3 o = ((vdir * r.x + rdir * r.y) * aperature / 2.0);
-	// vec3 o = ((vdir * srand(rseed()) + rdir * srand(rseed())) * aperature / 2.0);	// square bokeh
+	// vec3 o = ((vdir * s_random(rseed()) + rdir * s_random(rseed())) * aperature / 2.0);	// square bokeh
 	ray.direction = normalize(p - o);
 	ray.origin += o;
 }
@@ -470,24 +450,25 @@ float evalChannel(in int i, in Ray src, in int bounces) {
 		float sini = sqrt(1.0 - cosi*cosi);
 		// test if r0 or not complex --> use optimized computations
 		float refl = reflectance_complex(cosi, sini, eta_cx.x, eta_cx.y);
-		float r = rand();
+		float r = random();
 		if(r <= refl) {	// specular reflections
 			ray.origin = hit.normal.origin;
-			ray.direction = reflect(ray.direction, hit.normal.direction) + (uniformUnitVec3(rseed()) * mat.specular_roughness);
+			ray.direction = reflect(ray.direction, hit.normal.direction) + (uniformlyRandomVec3(rseed()) * mat.specular_roughness);
 		} else {	// transmission --> can be diffused or transmitted (transparently), or [insert subsurface scattering here]
 			if(r <= mat.diffusive[i]) {
 				ray.origin = hit.normal.origin;
-				ray.direction = hit.normal.direction + uniformUnitVec3(rseed());
+				ray.direction = hit.normal.direction + uniformlyRandomVec3(rseed());
 			} else if(mat.transmissive[i] > 0.0) {	// compare to transmissive --> but this is just the conjugate of diffusive
 				vec3 r_out_perp = (1.0 / eta_cx.x) * (ray.direction + cosi * hit.normal.direction);
 				vec3 r_out_para = -sqrt(abs(1.0 - dot(r_out_perp, r_out_perp))) * hit.normal.direction;
-				ray.direction = normalize(r_out_perp + r_out_para) + (uniformUnitVec3(rseed()) * mat.specular_roughness);
+				ray.direction = normalize(r_out_perp + r_out_para) + (uniformlyRandomVec3(rseed()) * mat.specular_roughness);
 				ray.origin = hit.normal.origin;
 				//ray.direction = refract(ray.direction, hit.normal.direction, eta_cx.x) + (randomUnitVec3_Reject(rseed()) * mat.specular_roughness);		// figure out complex ir transmission angle?
 			} else {
 				return 0.0;	// absorption has occurred
 			}
 		}
+		ray.direction = normalize(ray.direction);
 		if(dot(hit.normal.direction, src) * dot(hit.normal.direction, ray.direction) > 0.0) {	// transmission
 			if(id == mat_chain[mat_chain_len]) {	// transmitting out of a media
 				mat_chain_len--;
@@ -514,14 +495,14 @@ void main() {
 	vec3 clr = texelFetch(acc_frame, ivec2(gl_FragCoord.xy), 0).rgb;
 	if(simple > 0) {
 		for(int i = 0; i < samples; i++) {
-			float r = rand();
+			float r = random();
 			base.direction = getSourceRay((gl_FragCoord.xy + vec2(r)) / fsize, iproj, iview);
 			clr += evalRaySimple(base);
 		}
 	} else {
 		Ray dof;
 		for(int i = 0; i < samples; i++) {
-			float r = rand();
+			float r = random();
 			base.direction = getSourceRay((vec2(gl_FragCoord) + vec2(r)) / fsize, iproj, iview);
 			dof = base;
 			makeDOFRay(dof, cam_vdir, cam_rdir, aperture, focus_distance);
