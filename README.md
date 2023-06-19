@@ -2,6 +2,8 @@
 
 #### All the newest features:
 
+![download (3)](https://github.com/S1ink/Web-RT/assets/60528506/0bff878d-a419-42ce-98fc-685e6fff0257)
+![download (2)](https://github.com/S1ink/Web-RT/assets/60528506/890d4b2d-04f6-4bdf-8b32-888a660517d2)
 ![download (11)](https://user-images.githubusercontent.com/60528506/215303533-4396930e-4bae-4df5-b958-12d68ae999b2.png)
 ![download (8)](https://user-images.githubusercontent.com/60528506/215367655-d7cb6174-d15b-4a04-bb0e-6ffdc465a13e.png)
 ![download (6)](https://user-images.githubusercontent.com/60528506/215303536-f54f54b5-38b1-4b8b-829b-536590cfcbd5.png)
