@@ -300,3 +300,124 @@ function makeCornell(scene) {
 		// new Triangle(bottom, d, a, mats[5]),
 	);
 }
+
+
+
+function toRad(x) {
+	return x / 180 * Math.PI;
+}
+function makeCrystal(scene) {
+	const l1 = [];
+	const l2 = [];
+	const r = 2;
+	const p1 = 0;
+	const p2 = toRad(30);
+	const p3 = toRad(55);
+
+	for(let i = 0; i < 12; i++) {
+		l1.push(toRad(i * 30));
+		l2.push(toRad(i * 30 + 15));
+	}
+
+	let pts = {
+		r1 : [],
+		r2 : [],
+		r3 : [],
+		r4 : [],
+		r5 : [],
+		top : Vec3(0, 2, 4 + r),
+		bottom : Vec3(0, 2, 4 - r)
+	};
+	for(let i = 0; i < 12; i++) {
+		const l = l1[i];
+		const _l = l2[i];
+		pts.r3.push(Vec3(r * Math.sin(l), 2 + r * Math.cos(l), 4));
+		pts.r1.push(Vec3(r * Math.cos(p3) * Math.sin(l), 2 + r * Math.cos(p3) * Math.cos(l), 4 + r * Math.sin(p3)));
+		pts.r5.push(Vec3(r * Math.cos(p3) * Math.sin(l), 2 + r * Math.cos(p3) * Math.cos(l), 4 - r * Math.sin(p3)));
+		pts.r2.push(Vec3(r * Math.cos(p2) * Math.sin(_l), 2 + r * Math.cos(p2) * Math.cos(_l), 4 + r * Math.sin(p2)));
+		pts.r4.push(Vec3(r * Math.cos(p2) * Math.sin(_l), 2 + r * Math.cos(p2) * Math.cos(_l), 4 - r * Math.sin(p2)));
+	}
+	// console.log(pts);
+
+	const triangles = [];
+	const mat = RefractiveMat(Vec3(1.5065, 1.5232, 1.5445), Vec3(0.9, 0.9, 0.9), 0);
+	const mats = scene.addMaterials(
+		DiffuseMat(Vec3(1, 1, 1)),
+		DiffuseMat(Vec3(1, 0, 0)),
+		DiffuseMat(Vec3(0, 1, 0)),
+		DiffuseMat(Vec3(0, 0, 1)),
+		EmmissiveMat(Vec3(2, 2, 2))
+	);
+	for(let i = 0; i < 11; i++) {
+		triangles.push(new Triangle( pts.r3[i], pts.r3[i + 1], pts.r2[i], mat ));
+		triangles.push(new Triangle( pts.r2[i], pts.r2[i + 1], pts.r3[i+1], mat ));
+		triangles.push(new Triangle( pts.r3[i], pts.r3[i + 1], pts.r4[i], mat ));
+		triangles.push(new Triangle( pts.r4[i], pts.r4[i + 1], pts.r3[i+1], mat ));
+		triangles.push(new Triangle( pts.r2[i], pts.r2[i + 1], pts.r1[i+1], mat ));
+		triangles.push(new Triangle( pts.r1[i], pts.r1[i + 1], pts.r2[i], mat ));
+		triangles.push(new Triangle( pts.r4[i], pts.r4[i + 1], pts.r5[i+1], mat ));
+		triangles.push(new Triangle( pts.r5[i], pts.r5[i + 1], pts.r4[i], mat ));
+		triangles.push(new Triangle(
+			pts.r1[i], pts.r1[i + 1], pts.top, mat
+		));
+		triangles.push(new Triangle(
+			pts.r5[i], pts.r5[i + 1], pts.bottom, mat
+		));
+	}
+	triangles.push(new Triangle( pts.r3[11], pts.r3[0], pts.r2[11], mat ));
+	triangles.push(new Triangle( pts.r2[11], pts.r2[0], pts.r3[0], mat ));
+	triangles.push(new Triangle( pts.r3[11], pts.r3[0], pts.r4[11], mat ));
+	triangles.push(new Triangle( pts.r4[11], pts.r4[0], pts.r3[0], mat ));
+	triangles.push(new Triangle( pts.r2[11], pts.r2[0], pts.r1[0], mat ));
+	triangles.push(new Triangle( pts.r1[11], pts.r1[0], pts.r2[11], mat ));
+	triangles.push(new Triangle( pts.r4[11], pts.r4[0], pts.r5[0], mat ));
+	triangles.push(new Triangle( pts.r5[11], pts.r5[0], pts.r4[11], mat ));
+	triangles.push(new Triangle(
+		pts.r1[11], pts.r1[0], pts.top, mat
+	));
+	triangles.push(new Triangle(
+		pts.r5[11], pts.r5[0], pts.bottom, mat
+	));
+
+	scene.setSky(RefractiveMat(
+		Vec3(1, 1, 1), Vec3(1, 1, 1)
+	));
+	scene.addTriangles(triangles);
+	scene.addTriangles(
+		Quad.fromCorners(
+			Vec3(-3, -1, 7),
+			Vec3(-3, 7, 7),
+			Vec3(3, 7, 7),
+			Vec3(3, -1, 7),
+			mats[0]
+		).primitives,
+		Quad.fromCorners(
+			Vec3(-3, 7, 7),
+			Vec3(-3, -1, 7),
+			Vec3(-3, -1, 1),
+			Vec3(-3, 7, 1),
+			mats[2]
+		).primitives,
+		Quad.fromCorners(
+			Vec3(3, 7, 7),
+			Vec3(3, -1, 7),
+			Vec3(3, -1, 1),
+			Vec3(3, 7, 1),
+			mats[1]
+		).primitives,
+		Quad.fromCorners(
+			Vec3(-3, -1, 7),
+			Vec3(-3, -1, 1),
+			Vec3(3, -1, 1),
+			Vec3(3, -1, 7),
+			mats[0]
+		).primitives,
+		Quad.fromCorners(
+			Vec3(-3, 7, 7),
+			Vec3(-3, 7, 1),
+			Vec3(3, 7, 1),
+			Vec3(3, 7, 7),
+			mats[4]
+		).primitives
+	);
+}

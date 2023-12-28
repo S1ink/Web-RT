@@ -154,7 +154,7 @@ scene.setSky(Mat(
 	Vec3(1, 1, 1),
 	Vec3(0.05, 0.05, 0.05),
 ));
-makeCornell(scene);
+makeCrystal(scene);
 scene.update(gl);
 
 const Renderer = {
