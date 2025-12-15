@@ -99,10 +99,10 @@ const State = {	// all application state variables
 		farclip : 100,
 
 		updir : vec3.fromValues(0, 1, 0),
-		fdir : vec3.fromValues(0, 0, 1),
-		rdir : vec3.fromValues(-1, 0, 0),
+		fdir : vec3.fromValues(1, 0, 0),
+		rdir : vec3.fromValues(0, 0, 1),
 		vdir : vec3.fromValues(0, 1, 0),
-		pos : vec3.fromValues(0, 0, 0),
+		pos : vec3.fromValues(-3, 3, 0),
 
 		view_mat : null,
 		proj_mat : null,
@@ -112,9 +112,9 @@ const State = {	// all application state variables
 	render : {
 		updated : false,
 
-		bounces : 5,
+		bounces : 10,
 		sample_rate : 1,
-		sample_limit : 1e4,
+		sample_limit : 1e5,
 		simple : false
 	},
 	input : {
@@ -152,9 +152,9 @@ scene.setSky(Mat(
 	Vec3(0, 0, 0),
 	Vec3(0.0, 0.0, 0.0),
 	Vec3(1, 1, 1),
-	Vec3(0.05, 0.05, 0.05),
+	Vec3(0.01, 0.01, 0.01),
 ));
-makeGeneric(scene);
+makeDiffraction2(scene);
 scene.update(gl);
 
 const Renderer = {

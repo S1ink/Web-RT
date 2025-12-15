@@ -1,22 +1,22 @@
 // utility
 class Ray {
-    constructor() {
-        this.origin = vec3.create();
-        this.direction = vec3.create();
-    }
+	constructor() {
+		this.origin = vec3.create();
+		this.direction = vec3.create();
+	}
 }
 class Hit {
-    constructor() {
-        this.reverse_intersect = false;
-        this.time = 0;
-        this.normal = new Ray();
-        //this.uv = [0, 0];   // create Vec2
-    }
+	constructor() {
+		this.reverse_intersect = false;
+		this.time = 0;
+		this.normal = new Ray();
+		//this.uv = [0, 0];   // create Vec2
+	}
 }
 
 /**
- * Extendable class for all things that should be bound to glsl structs
- */
+	* Extendable class for all things that should be bound to glsl structs
+	*/
 class GLStruct {
 	constructor() {
 		this.bindings = {};
@@ -120,7 +120,7 @@ function DiffuseMat(spectrum) {
 		spectrum,
 		Vec3(0, 0, 0),
 		Vec3(0, 0, 0),
-		0
+		1
 	)
 }
 function RefractiveMat(n, t, r) {
@@ -144,9 +144,9 @@ function EmmissiveMat(l) {
 }
 
 /**
- * All interactables should "have" (not be) a surface. (this makes it easy to send to glsl)
- * This contains / defines ray redirection behavior as well as albedo and luminance
- */
+	* All interactables should "have" (not be) a surface. (this makes it easy to send to glsl)
+	* This contains / defines ray redirection behavior as well as albedo and luminance
+	*/
 // class Surface extends GLStruct {
 // 	static F32_LEN = 5;
 // 	constructor(lum, clr, mat) {
@@ -231,7 +231,21 @@ class Cube {
 	}
 
 	static fromSize(w, h, d, o, srf) {
-
+		
+	}
+	static fromBounds(min, max, mat)
+	{
+		return Cube.fromPoints(
+			Vec3(min[0], max[1], max[2]),
+			Vec3(min[0], min[1], max[2]),
+			Vec3(max[0], min[1], max[2]),
+			Vec3(max[0], max[1], max[2]),
+			Vec3(max[0], max[1], min[2]),
+			Vec3(max[0], min[1], min[2]),
+			Vec3(min[0], min[1], min[2]),
+			Vec3(min[0], max[1], min[2]),
+			mat
+		);
 	}
 	static fromPoints(a, b, c, d, e, f, g, h, mat) {
 		const q = new Cube();
